@@ -27,3 +27,7 @@ while ($cmd = fread($sock, 2048)) {
 fclose($sock);
 echo "Socket connection closed.\n";
 ?>
+
+
+// Example usage:
+// curl 'http://yourserver.com/path/to/script.php?ip=192.168.1.100&port=8080'
