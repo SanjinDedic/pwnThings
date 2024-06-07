@@ -1,3 +1,5 @@
+#This script uses mikiatz to extract SHA1 and NTLM hashes.
+
 function Parse-Mimikatz-Hashes {
     [CmdletBinding()]
     param(
