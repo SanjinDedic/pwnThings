@@ -1,115 +1,150 @@
-function Get-PsLoggedOnPath {
-    $defaultPaths = @{
-        Path32 = "C:\Tools\PSTools\PsLoggedon.exe"
-        Path64 = "C:\Tools\PSTools\PsLoggedon64.exe"
-    }
-    
-    Write-Host "`n[*] Checking for PsLoggedOn executables..." -ForegroundColor Cyan
-    
-    $found32 = Test-Path $defaultPaths.Path32
-    $found64 = Test-Path $defaultPaths.Path64
-    
-    if (-not ($found32 -or $found64)) {
-        Write-Host "[!] PsLoggedOn executables not found in default path" -ForegroundColor Yellow
-        Write-Host "[?] Enter path to PSTools folder (or press Enter to skip): " -NoNewline
-        $customPath = Read-Host
-        
-        if ([string]::IsNullOrWhiteSpace($customPath)) {
-            Write-Host "[-] PsLoggedOn functionality will be disabled" -ForegroundColor Red
-            return $null
-        }
-        
-        $defaultPaths.Path32 = Join-Path $customPath "PsLoggedon.exe"
-        $defaultPaths.Path64 = Join-Path $customPath "PsLoggedon64.exe"
-        $found32 = Test-Path $defaultPaths.Path32
-        $found64 = Test-Path $defaultPaths.Path64
-        
-        if (-not ($found32 -or $found64)) {
-            Write-Host "[-] No PsLoggedOn executables found in specified path" -ForegroundColor Red
-            return $null
-        }
-    }
-    
-    if ($found64) { 
-        Write-Host "[+] Using 64-bit version: $($defaultPaths.Path64)" -ForegroundColor Green
-        return @{ Path = $defaultPaths.Path64 }
-    }
-    
-    Write-Host "[+] Using 32-bit version: $($defaultPaths.Path32)" -ForegroundColor Green
-    return @{ Path = $defaultPaths.Path32 }
-}
-
-function Test-PsLoggedOn {
-    param (
-        $target,
-        $psLoggedOnPath
-    )
-    Write-Host "  [*] Testing PsLoggedOn..." -ForegroundColor Gray
-    
-    if (-not $psLoggedOnPath) {
-        Write-Host "  - PsLoggedOn: Executable not found" -ForegroundColor Red
-        return $false
-    }
-    
-    try {
-        $result = & $psLoggedOnPath.Path \\$target 2>&1
-        $outputString = $result | Out-String
-        
-        if ($outputString -match "Access is denied") {
-            Write-Host "  - PsLoggedOn: Access denied" -ForegroundColor Yellow
-            return $false
-        }
-        
-        $hasUsers = $outputString -match "Users logged on locally:|Users logged on via resource shares:"
-        if ($hasUsers -and $outputString -match "CORP\\") {
-            Write-Host "  + PsLoggedOn: Found user sessions" -ForegroundColor Green
-            return $true
-        }
-        
-        Write-Host "  - PsLoggedOn: No valid sessions found" -ForegroundColor Red
-        return $false
-    }
-    catch {
-        Write-Host "  - PsLoggedOn: Error executing command: $_" -ForegroundColor Red
-        return $false
-    }
-}
-
-function Execute-PsLoggedOn {
-    param (
-        $target,
-        $psLoggedOnPath
-    )
-    try {
-        $result = & $psLoggedOnPath.Path \\$target 2>&1
-        if ($result) {
-            $result | ForEach-Object { Write-Host $_ }
-        }
-    }
-    catch {
-        Write-Host "[-] Error executing PsLoggedOn: $_" -ForegroundColor Red
-    }
-}
-
-
-
-# Session Enumeration Comprehensive Test Script v1.5
 $ErrorActionPreference = 'SilentlyContinue'
 Write-Host "[*] Session Enumeration Script Starting..." -ForegroundColor Cyan
 
-# Get user preference for Registry enumeration
-Write-Host "[?] Would you like to enable Registry enumeration? (slower) (y/N): " -NoNewline -ForegroundColor Yellow
-$enableReg = Read-Host
-$EnableRegQuery = $enableReg -eq 'y'
-if ($EnableRegQuery) {
-    Write-Host "[*] Registry enumeration enabled" -ForegroundColor Green
-    Write-Host "[?] Enter Registry query timeout in seconds (default 5): " -NoNewline
-    $timeout = Read-Host
-    $RegQueryTimeout = if ($timeout -match '^\d+$') { [int]$timeout } else { 5 }
-    Write-Host "[*] Registry timeout set to $RegQueryTimeout seconds" -ForegroundColor Green
-} else {
-    Write-Host "[*] Registry enumeration disabled" -ForegroundColor Yellow
+# Function to locate and verify PsLoggedOn
+function Get-PsLoggedOnPath {
+    param(
+        [string]$InitialPath = "C:\Tools\PSTools\PsLoggedon.exe"
+    )
+
+    function Test-PsLoggedOnExe {
+        param([string]$Path)
+        
+        if (-not $Path) { return $false }
+        if (-not (Test-Path $Path)) { return $false }
+        
+        try {
+            $fileInfo = Get-Item $Path
+            # Verify it's an executable
+            if ($fileInfo.Extension -ne ".exe") { return $false }
+            
+            # Test execution (capture version info)
+            $result = & $Path 2>&1
+            return $result -match "PsLoggedon"
+        }
+        catch {
+            return $false
+        }
+    }
+
+    function Prompt-ForPath {
+        param([string]$CurrentPath)
+        
+        Write-Host "`n[!] PsLoggedOn not found or not working at: $CurrentPath" -ForegroundColor Yellow
+        Write-Host "[?] Would you like to specify a different path? (Y/n): " -NoNewline -ForegroundColor Yellow
+        $response = Read-Host
+        
+        if ($response -eq 'n') {
+            return $null
+        }
+        
+        do {
+            Write-Host "[+] Enter the full path to PsLoggedon.exe: " -NoNewline -ForegroundColor Green
+            $newPath = Read-Host
+            
+            if (Test-PsLoggedOnExe $newPath) {
+                Write-Host "[+] Successfully verified PsLoggedOn at: $newPath" -ForegroundColor Green
+                return @{
+                    Path = $newPath
+                    Verified = $true
+                }
+            }
+            
+            Write-Host "`n[-] Invalid path or unable to verify PsLoggedOn at: $newPath" -ForegroundColor Red
+            Write-Host "[?] Would you like to try another path? (Y/n): " -NoNewline -ForegroundColor Yellow
+            $retry = Read-Host
+            
+            if ($retry -eq 'n') {
+                return $null
+            }
+        } while ($true)
+    }
+
+    # First try the initial path
+    if (Test-PsLoggedOnExe $InitialPath) {
+        return @{
+            Path = $InitialPath
+            Verified = $true
+        }
+    }
+
+    # If initial path fails, try common locations
+    $commonPaths = @(
+        "C:\Tools\PSTools\PsLoggedon.exe",
+        "C:\PSTools\PsLoggedon.exe",
+        "C:\Windows\System32\PsLoggedon.exe",
+        "${env:ProgramFiles}\PSTools\PsLoggedon.exe",
+        "${env:ProgramFiles(x86)}\PSTools\PsLoggedon.exe"
+    )
+
+    foreach ($path in $commonPaths) {
+        if ($path -ne $InitialPath -and (Test-PsLoggedOnExe $path)) {
+            Write-Host "[+] Found PsLoggedOn at: $path" -ForegroundColor Green
+            return @{
+                Path = $path
+                Verified = $true
+            }
+        }
+    }
+
+    # If no automatic detection works, prompt user
+    return Prompt-ForPath $InitialPath
 }
+
+# Initialize PsLoggedOn path at script start
+$psLoggedOnInfo = Get-PsLoggedOnPath
+if ($null -eq $psLoggedOnInfo) {
+    Write-Host "`n[-] PsLoggedOn will not be available for enumeration" -ForegroundColor Red
+    $global:psLoggedOnPath = $null
+    Write-Host "[!] Would you like to continue without PsLoggedOn? (Y/n): " -NoNewline -ForegroundColor Yellow
+    $continue = Read-Host
+    if ($continue -eq 'n') {
+        Write-Host "[-] Script terminated by user" -ForegroundColor Red
+        exit
+    }
+    Write-Host "[*] Continuing without PsLoggedOn functionality..." -ForegroundColor Yellow
+} else {
+    $global:psLoggedOnPath = $psLoggedOnInfo.Path
+    Write-Host "[+] Using PsLoggedOn from: $psLoggedOnPath" -ForegroundColor Green
+}
+
+# Then modify your Test-PsLoggedOn function to use the global path
+function Test-PsLoggedOn {
+    param ($target)
+    Write-Host "  [*] Testing PsLoggedOn..." -ForegroundColor Gray
+    
+    if (-not $global:psLoggedOnPath) {
+        Write-Host "  [-] PsLoggedOn not available" -ForegroundColor Yellow
+        return $false
+    }
+    
+    $result = & $global:psLoggedOnPath \\$target 2>&1
+    $resultString = $result | Out-String
+    
+    # Check for specific error conditions first
+    if ($resultString -match "Access is denied") {
+        Write-Host "  - PsLoggedOn: Access denied" -ForegroundColor Yellow
+        return $false
+    }
+    
+    # Consider it a success only if we find actual user data
+    $hasLocalUsers = $resultString -match "Users logged on locally:"
+    $hasResourceUsers = $resultString -match "Users logged on via resource shares:"
+    
+    # Check for the error but also verify if we got actual user data
+    $hasRegistryError = $resultString -match "Error opening HKEY_USERS"
+    
+    if (($hasLocalUsers -or $hasResourceUsers) -and 
+        ($resultString -match "CORP\\")) {
+        Write-Host "  + PsLoggedOn: Found user sessions" -ForegroundColor Green
+        return $true
+    }
+    
+    Write-Host "  - PsLoggedOn: No valid sessions found" -ForegroundColor Red
+    return $false
+}
+
+# Rest of your original script continues here...
 
 function Test-PowerViewPath {
     param (
@@ -393,12 +428,12 @@ foreach ($t in $targets) {
             }
         }
 
-        if (Test-PsLoggedOn $t) {
+        if (Test-PsLoggedOn -target $t -psLoggedOnPath $psLoggedOnPath) {
             Write-Host "  + PsLoggedOn: Working" -ForegroundColor Green
             $commandDetails.Methods += "PsLoggedOn"
             $commandDetails.Commands += [PSCustomObject]@{
                 Method = "PsLoggedOn"
-                Command = "C:\Tools\PSTools\PsLoggedon.exe \\$t"
+                Command = "$global:psLoggedOnPath \\$t"  # Set the full command
                 Description = "Lists logged on users using Sysinternals PsLoggedOn"
             }
         }
@@ -474,25 +509,19 @@ if ($successfulTargets.Count -gt 0) {
                 
                 try {
                     switch ($command.Method) {
-                        "PowerView" {
-                            # Execute PowerView command directly through PowerShell
-                            Invoke-Expression $command.Command
+                        "PowerView" { 
+                            Invoke-Expression $command.Command 
                         }
-                        "PsLoggedOn" {
-                            # Execute PsLoggedOn as an external process
-                            try {
-                                $result = & $command.Command $command.Arguments 2>&1
-                                if ($result) {
-                                    $result | ForEach-Object { Write-Host $_ }
-                                }
-                            }
-                            catch {
-                                Write-Host "[-] Error executing PsLoggedOn: $_" -ForegroundColor Red
+                        
+                        "PsLoggedOn" { 
+                            Write-Host "Running: $($global:psLoggedOnPath) \\$($target.Target)"
+                            $result = & $global:psLoggedOnPath "\\$($target.Target)" 2>&1
+                            if ($result) {
+                                $result | ForEach-Object { Write-Host $_ }
                             }
                         }
-                        }
-                        "RegQuery" {
-                            # Execute reg query with timeout protection
+                        
+                        "RegQuery" { 
                             $job = Start-Job -ScriptBlock {
                                 param($cmd)
                                 cmd /c $cmd
@@ -506,8 +535,8 @@ if ($successfulTargets.Count -gt 0) {
                             }
                             Remove-Job $job -Force
                         }
-                        default {
-                            # Execute other commands through cmd.exe
+                        
+                        default { 
                             $result = cmd /c $command.Command 2>&1
                             if ($result) {
                                 $result | ForEach-Object { Write-Host $_ }
